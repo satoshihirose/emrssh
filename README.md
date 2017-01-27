@@ -1,4 +1,5 @@
-# ec2ssh
+# emrssh
+emrssh was inspired by  [ec2ssh](https://github.com/sumikawa/ec2ssh)
 
 ## How to install
 
@@ -12,9 +13,9 @@ gem install inifile aws-sdk
 - copy files to somewhere in exec path
  
 ```
-git clone git@github.com:sumikawa/ec2ssh.git
-cd ec2ssh
-cp ec2ssh get_instances.rb /usr/local/bin/
+git clone git@github.com:satoshihirose/emrssh.git
+cd emrssh
+cp emrssh get_clusters.rb /usr/local/bin/
 ```
 
 ## Usage
@@ -25,8 +26,8 @@ cp ec2ssh get_instances.rb /usr/local/bin/
 ssh-add ~/.ssh/<YOUR_PRIVATE_KEY>.pem
 ```
 
-- run ec2ssh and select an instance you want to log in to
+- run emrssh and select an instance you want to log in to
 
 ```
-ec2ssh
+emrssh
 ```

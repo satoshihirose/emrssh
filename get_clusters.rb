@@ -7,9 +7,9 @@ require 'optparse'
 require 'yaml'
 
 CONFIG = File.join(Dir.home, '.aws', 'config').freeze
-CACHE = File.join(Dir.home, '.ec2ssh').freeze
+CACHE = File.join(Dir.home, '.emrssh').freeze
 CACHE_TTL = 3600
-INSTANCE = Struct.new(:instance_id, :public_dns_name, :private_dns_name, :tags)
+CLUSTER = Struct.new(:cluster_id, :cluster_name, :public_dns_name, :status, :release_label, :tags)
 
 profile = 'default'
 opts = {}
@@ -28,39 +28,47 @@ ini = IniFile.load(CONFIG)
 region = ENV['REGION'] || ini[profile]['region']
 Aws.config[:region] = region
 
-instances = []
+clusters = []
 # load cache if fresh
 if File.exist?(CACHE) && opts[:ignore].nil?
   mtime = File::Stat.new(CACHE).mtime
   if Time.now - mtime < CACHE_TTL
     cache = YAML.load_file(CACHE)
-    instances = cache[profile][region] rescue nil
+    clusters = cache[profile][region] rescue nil
   end
 end
 
-if instances.empty?
-  ec2 = Aws::EC2::Client.new
-  instances = ec2.describe_instances(
-    filters: [{ name: 'instance-state-name', values: ['running'] }]
-  ).reservations.flat_map(&:instances).map! do |instance|
-    INSTANCE.new(instance.instance_id,
-                 instance.public_dns_name,
-                 instance.private_dns_name,
-                 instance.tags)
+if clusters.empty?
+  emr = Aws::EMR::Client.new
+  list = emr.list_clusters({
+    cluster_states: ["STARTING","BOOTSTRAPPING","RUNNING","WAITING"]
+  })
+  clusters = list.clusters.map! do |cluster|
+    detail = emr.describe_cluster({
+      cluster_id:  cluster.id
+    })
+    CLUSTER.new(cluster.id,
+                 cluster.name,
+                 detail.cluster.master_public_dns_name,
+                 detail.cluster.status.state,
+                 detail.cluster.release_label,
+                 detail.cluster.tags)
   end
   File.open(CACHE, 'w') { |f|
-    cache = { profile => { region => instances } }
+    cache = { profile => { region => clusters } }
     YAML.dump(cache, f)
   }
 end
 
-instances.each do |instance|
-  user = 'ec2-user'
-  name = instance.instance_id
-  dnsname = instance.public_dns_name || instance.private_dns_name
-  instance.tags.each do |tag|
+clusters.each do |cluster|
+  user = 'hadoop'
+  name = 'No name'
+  dnsname = cluster.public_dns_name
+  status = cluster.status
+  release_label = cluster.release_label
+  cluster.tags.each do |tag|
     name = tag.value if tag.key =~ /^name/i
     user = tag.value if tag.key =~ /^user/i
   end
-  puts "\"#{name}\"\t#{user}@#{dnsname}\t#{instance.instance_id}"
+  puts "#{cluster.cluster_id}\t\"#{name}\"\t#{status}\t#{release_label}\t#{user}@#{dnsname}\t"
 end
