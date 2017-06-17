@@ -9,7 +9,7 @@ require 'yaml'
 CONFIG = File.join(Dir.home, '.aws', 'config').freeze
 CACHE = File.join(Dir.home, '.emrssh').freeze
 CACHE_TTL = 3600
-CLUSTER = Struct.new(:cluster_id, :cluster_name, :public_dns_name, :status, :release_label, :tags)
+CLUSTER = Struct.new(:cluster_id, :cluster_name, :public_dns_name, :status, :release_label, :tags, :create_date)
 
 profile = 'default'
 opts = {}
@@ -52,7 +52,9 @@ if clusters.empty?
                  detail.cluster.master_public_dns_name,
                  detail.cluster.status.state,
                  detail.cluster.release_label,
-                 detail.cluster.tags)
+                 detail.cluster.tags,
+                 detail.cluster.status.timeline.creation_date_time,
+               )
   end
   File.open(CACHE, 'w') { |f|
     cache = { profile => { region => clusters } }
@@ -62,13 +64,14 @@ end
 
 clusters.each do |cluster|
   user = 'hadoop'
-  name = 'No name'
+  name = cluster.cluster_name
   dnsname = cluster.public_dns_name
   status = cluster.status
   release_label = cluster.release_label
+  create_date = cluster.create_date
   cluster.tags.each do |tag|
     name = tag.value if tag.key =~ /^name/i
     user = tag.value if tag.key =~ /^user/i
   end
-  puts "#{cluster.cluster_id}\t\"#{name}\"\t#{status}\t#{release_label}\t#{user}@#{dnsname}\t"
+  puts "#{cluster.cluster_id}\t#{status}\t#{release_label}\t#{user}@#{dnsname}\t#{create_date}\t\"#{name}\"\t"
 end
