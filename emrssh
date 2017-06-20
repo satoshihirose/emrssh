@@ -1,6 +1,6 @@
 #!/bin/bash
 get_clusters() {
-  get_clusters.rb $*| percol | cut -f 5
+  get_clusters.rb $*| percol | cut -f 4
 }
 
 i=$(get_clusters $*)
